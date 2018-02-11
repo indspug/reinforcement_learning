@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+#
+##################################################
+# OpenAI GymのCartPoleをQ-Learningで強化学習する
+##################################################
 
 import gym
 import numpy as np
@@ -112,16 +116,16 @@ if __name__ == '__main__':
 		
 	#episodes = np.arange(len(steps_history))
 	#plt.plot(episodes, steps_history)
-	list1 = []
-	list2 = []
+	episode_list = []
+	step_list = []
 	ave = 0
 	for i, step in enumerate(steps_history):
 		ave += step
 		if (i+1) % 50 == 0:
-			list1.append(i+1)
-			list2.append(ave/50)
+			episode_list.append(i+1)
+			step_list.append(ave/50)
 			ave = 0
-	plt.plot(list1, list2)
+	plt.plot(episode_list, step_list)
 	plt.xlabel('Episodes')
 	plt.ylabel('Steps')
 	plt.show()
