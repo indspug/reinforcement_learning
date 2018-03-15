@@ -9,22 +9,23 @@ sys.path.append(os.getcwd())
 from yusuke_1go import Yusuke1goEnv
 import math
 import numpy as np
-import matplotlib.pylab as plt
+#import matplotlib.pylab as plt
 
 # パラメータ
-NUM_EPISODES = 100000
-MAX_STEP = 500
+NUM_EPISODES = 10000000
+MAX_STEP = 1000
 
-CART_X_BIN     = 10
-CART_Y_BIN     = 5
-CART_ANGLE_BIN = 20
-RSPEED_BIN     = 10
+CART_X_BIN     = 8	# Xの離散化数
+CART_Y_BIN     = 2	# Yの離散化数
+CART_ANGLE_BIN = 16	# 角度の離散化数
+SENSOR_BIN     = 4	# センサ値の離散化数
+RSPEED_BIN     = 8	# 回転速度の離散化数
 
 ALPHA = 0.2		# 学習率
 GAMMA = 0.99	# 割引率
 
 ##################################################
-# ビン(min〜maxをnum分割した値)を返す
+# 連続値を離散化した(min〜maxをnum分割した値)を返す
 ##################################################
 def bins(clip_min, clip_max, num):
 	bins = np.linspace(clip_min, clip_max, num+1)[1:-1]
@@ -33,14 +34,24 @@ def bins(clip_min, clip_max, num):
 ##################################################
 # 状態を離散値に変換する
 ##################################################
-def digitize_state(observation):
-	cart_x, cart_y, cart_angle = observation
-			# カートX位置, カートY位置, カートの角度,
+def digitize_state(observation, observation_space):
+
+	# カートX位置, カートY位置, カートの角度, センサー値
+	cart_x, cart_y, cart_angle, sensor1, sensor2, sensor3 = observation
+	
+	# 最大値と最小値
+	cart_x_high, cart_y_high, cart_angle_high, \
+		sensor1_high, sensor2_high, sensor3_high = observation_space.high
+	cart_x_low,  cart_y_low,  cart_angle_low,  \
+		sensor1_low,  sensor2_low,  sensor3_low  = observation_space.low
 	
 	# ビンの位置(インデックス)を返す
-	digitized = [	np.digitize(cart_x,	    bins(-100,  100, CART_X_BIN)	    ),
-					np.digitize(cart_y,		bins(   0, 1000, CART_Y_BIN)		),
-					np.digitize(cart_angle,	bins(-math.pi, math.pi, CART_ANGLE_BIN)	)
+	digitized = [	np.digitize(cart_x,	    bins(cart_x_low,     cart_x_high,     CART_X_BIN)    ),
+					np.digitize(cart_y,		bins(cart_y_low,     cart_y_high,     CART_Y_BIN)    ),
+					np.digitize(cart_angle,	bins(cart_angle_low, cart_angle_high, CART_ANGLE_BIN)),
+					np.digitize(sensor1,	bins(sensor1_low,    sensor1_high,    SENSOR_BIN)    ),
+					np.digitize(sensor2,	bins(sensor2_low,    sensor2_high,    SENSOR_BIN)    ),
+					np.digitize(sensor3,	bins(sensor3_low,    sensor3_high,    SENSOR_BIN)    )
 				]
 	
 	return digitized
@@ -48,28 +59,75 @@ def digitize_state(observation):
 ##################################################
 # アクションを離散値に変換する
 ##################################################
-def digitize_action(action):
+def digitize_action(action, action_space):
+
+	# 左ホイールの速度, 右ホイールの速度
 	left_rspeed, right_rspeed = action
-			# 左ホイールの速度, 右ホイールの速度
 	
+	# 最大値と最小値
+	left_rs_high, right_rs_high = action_space.high
+	left_rs_low,  right_rs_low  = action_space.low
+
 	# ビンの位置(インデックス)を返す
-	digitized = [	np.digitize(left_rspeed,  bins(0, 10, RSPEED_BIN) ),
-					np.digitize(right_rspeed, bins(0, 10, RSPEED_BIN) )
+	digitized = [	np.digitize(left_rspeed,  bins(left_rs_low,  left_rs_high,  RSPEED_BIN) ),
+					np.digitize(right_rspeed, bins(right_rs_low, right_rs_high, RSPEED_BIN) )
 				]
 	
 	return digitized
 
+##################################################
+# 最善のアクションのインデックスを返す
+##################################################
+def get_action_argmax(q_table, state):
+
+	new_actions = q_table[state]
+	#print(new_actions)
+
+	qmax = -1e300
+	max_i, max_j = -1, -1
+	for i in range(new_actions.shape[0]):
+		for j in range(new_actions.shape[1]):
+			if new_actions[i, j] > qmax:
+				qmax = new_actions[i, j] 
+				max_i = i
+				max_j = j
+
+	return np.array([max_i, max_j])
+	
+##################################################
+# アクションを離散値から連続値に変換する
+##################################################
+def d2a_action_argmax(action, action_space):
+
+	# 左ホイールの速度, 右ホイールの速度
+	left_rspeed_bin, right_rspeed_bin = action
+	
+	# 最大値と最小値
+	left_rs_high, right_rs_high = action_space.high
+	left_rs_low,  right_rs_low  = action_space.low
+
+	# 範囲
+	left_range  = left_rs_high  - left_rs_low
+	right_range = right_rs_high - right_rs_low
+
+	# 連続値計算
+	lspeed = float(left_rspeed_bin)  / float(RSPEED_BIN-1) * left_range  + left_rs_low
+	rspeed = float(right_rspeed_bin) / float(RSPEED_BIN-1) * right_range + right_rs_low
+
+	return np.array([lspeed, rspeed])
 
 ##################################################
 # 次のアクションを返す
 ##################################################
-#def get_action(q_table, state, action, observation, reward):
-def get_action(q_table, state, action, observation, reward, episode):
-	next_state = digitize_state(observation)		# 次の状態
-	action_bin = digitize_action(action)
+def get_action(	q_table, state, 
+				action, action_space, 
+				observation, observation_space, 
+				reward, episode):
+
+	next_state = digitize_state(observation, observation_space)
+	action_bin = digitize_action(action, action_space)
 	
 	# ε-greedy(epsilon-greedy)法で次のアクション取得
-	#epsilon = 0.2
 	epsilon = 0.5 * (0.999 ** episode)
 	if epsilon <= np.random.uniform(0, 1):
 		# 次の状態から最善のアクションを取得
@@ -81,27 +139,8 @@ def get_action(q_table, state, action, observation, reward, episode):
 	i2 = next_state + [next_action[0], next_action[1]]
 	q_table[i1] = (1.0 - ALPHA) * q_table[i1] + \
 					ALPHA * (reward + GAMMA * q_table[i2])
-	#print(next_action, next_state)
 
 	return next_action, next_state
-	
-##################################################
-# 最善のアクションのインデックスを返す
-##################################################
-def get_action_argmax(q_table, state):
-
-	new_actions = q_table[state]
-
-	qmax = -1e5
-	max_i, max_j = -1, -1
-	for i in range(new_actions.shape[0]):
-		for j in range(new_actions.shape[1]):
-			if new_actions[i, j] > qmax:
-				qmax = new_actions[i, j] 
-				max_i = i
-				max_j = j
-
-	return max_i, max_j
 	
 ##################################################
 # メイン
@@ -110,13 +149,17 @@ if __name__ == '__main__':
 	
 	# 環境読み込み
 	#env = gym.make('CartPole-v0')
-	env = Yusuke1goEnv()
-	
+	env = Yusuke1goEnv(MAX_STEP)
+	observation_space = env.observation_space
+	action_space = env.action_space
+
 	# Q関数の初期化
-	#   sizeは(カートX位置,カートY位置, カートの角度, 左ホイールの速度、右ホイールの速度)
+	#   sizeは(カートX位置,カートY位置, カートの角度, センサー値, 左ホイールの速度、右ホイールの速度)
 	q_table = np.random.uniform( \
 					low=-1, high=1, \
-					size=(CART_X_BIN, CART_Y_BIN, CART_ANGLE_BIN, RSPEED_BIN, RSPEED_BIN) )
+					size=(	CART_X_BIN, CART_Y_BIN, CART_ANGLE_BIN, 
+							SENSOR_BIN, SENSOR_BIN, SENSOR_BIN,
+							RSPEED_BIN, RSPEED_BIN) )
 	
 	# 学習の履歴
 	steps_history = []
@@ -126,36 +169,40 @@ if __name__ == '__main__':
 		
 		# 環境初期化
 		observation = env.reset()
-		state = digitize_state(observation)
-		#action = np.argmax(q_table[state])
+		state = digitize_state(observation, observation_space)
 		action = get_action_argmax(q_table, state)
 		
+		# 描画有無決定
+		isRendering = False
+		if (episode > 5000) and (episode % 200) == 0:
+			isRendering = True
+		elif (episode > 1000) and (episode % 500) == 0:
+			isRendering = True
+
 		# 最大ステップ数まで学習
 		for step in range(MAX_STEP):
 			
-			if (episode % 100) == 0:
-				env.render()	# 描画
+			# 描画
+			if isRendering:
+				env.render()
 			
-			lspeed = float(action[0]) / float(RSPEED_BIN) * 10
-			rspeed = float(action[1]) / float(RSPEED_BIN) * 10
-			
+			action = d2a_action_argmax(action, action_space)
+
 			# 1ステップ進める
-			observation, reward, done, info = env.step((lspeed, rspeed))
-			#observation, reward, done, info = env.step(action)
+			observation, reward, done, info = env.step(action)
 				# 取得したアクション後の状態,報酬,終了判定,情報
 			
 			#print('x=%f, y=%f, dir=%f' % (observation[0], observation[1], observation[2]))
 
-			# 終了(ポールが倒れた)場合は大きい罰則を与える
-			#if done:
-				#reward = -200
-				
-			action, state = get_action(q_table, state, action, observation, reward, episode)
+			# (離散化された)次のアクションと離散化した状態を取得
+			action, state = get_action(	q_table, state, action, action_space,
+										observation, observation_space, 
+										reward, episode)
 			
-			# 終了(ポールが倒れた)場合
+			# 終了の場合
 			if done:
 				steps_history.append(step+1)
-				print('Episode-%04d finished at %03d steps' % (episode, step))
+				print('Episode-%08d finished at %03d steps' % (episode, step))
 				break
 		
 	#episodes = np.arange(len(steps_history))
