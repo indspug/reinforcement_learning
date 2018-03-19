@@ -45,6 +45,8 @@ class Yusuke1goEnv(gym.Env):
         self.sensor_val_min = 0
         self.sensor_num = 3
         self.sensor_angle = np.array([-math.pi/4, 0, math.pi/4])
+        #self.sensor_num = 5
+        #self.sensor_angle = np.array([-math.pi/2, -math.pi/4, 0, math.pi/4, math.pi/2])
 
         # 障害物の設定
         self.obstacle_width = 15
@@ -67,8 +69,12 @@ class Yusuke1goEnv(gym.Env):
         self.action_space = spaces.Box(low=action_low, high=action_high, dtype=np.float32)
         state_high = np.array([ self.xmax, self.ymax, self.dir_max, 
                                 self.sensor_val_max, self.sensor_val_max, self.sensor_val_max])
+                                #self.sensor_val_max, self.sensor_val_max, self.sensor_val_max,
+                                #self.sensor_val_max, self.sensor_val_max])
         state_low  = np.array([ self.xmin, self.ymin, self.dir_min, 
                                 self.sensor_val_min, self.sensor_val_min, self.sensor_val_min])
+                                #self.sensor_val_min, self.sensor_val_min, self.sensor_val_min,
+                                #self.sensor_val_min, self.sensor_val_min])
         self.observation_space = spaces.Box(low=state_low, high=state_high, dtype=np.float32)
 
         # 乱数・描画・状態・ステップ初期化
@@ -95,7 +101,8 @@ class Yusuke1goEnv(gym.Env):
         done = False
 
         # 状態と行動を取得
-        x, y, angle, sensor1, sensor2, sensor3 = self.state
+        #x, y, angle, sensor1, sensor2, sensor3 = self.state
+        x, y, angle,  = self.state[0], self.state[1], self.state[2]
         left_rspeed, right_rspeed = action
 
         # 状態更新
@@ -124,15 +131,25 @@ class Yusuke1goEnv(gym.Env):
 
             # カートと障害物の距離がセンサーの射程内のとき
             if distance < self.sensor_range:
-                diff_angle = self.get_diff_angle(new_x, new_y, ox, oy)
+                # カートと障害物の相対角度
+                diff_angle = self.get_diff_angle(new_x, new_y, ox, oy) 
 
-                for i in range(self.sensor_num):
-                    # センサが障害物の方を向いていれば距離をセンサー値とする
-                    diff_sensor_angle = self.correct_angle(diff_angle - self.sensor_angle[i])
+                # カートの向きも考慮したカートと障害物の相対角度
+                diff_angle = self.correct_angle(diff_angle - new_angle)
+
+                for j in range(self.sensor_num):
+                    #print('(%d,%d) : cart(%.1f,%.1f), obst(%.1f,%.1f)' % 
+                    #        (i, j, new_x, new_y, ox, oy))
+                    #print('(%d,%d) : cart_angle=%.1f, diff_angle=%.1f' % 
+                    #        (i, j, new_angle*180/math.pi, diff_angle*180/math.pi))
+
+                    # センサが障害物の方を向いていれば距離に応じたセンサー値とする
+                    # (距離が近いほど大きく、遠いほど小さく)
+                    diff_sensor_angle = self.correct_angle(diff_angle - self.sensor_angle[j])
                     if abs(diff_sensor_angle) < math.pi/9:
                         sensor_val_tmp = self.sensor_val_max * (1 - distance/self.sensor_range)
-                        if sensor_val[i] > sensor_val_tmp:
-                            sensor_val[i] = sensor_val_tmp
+                        if sensor_val[j] < sensor_val_tmp:
+                            sensor_val[j] = sensor_val_tmp
 
         # 状態更新
         self.state = (new_x, new_y, new_angle) + tuple(sensor_val.tolist())
@@ -195,7 +212,8 @@ class Yusuke1goEnv(gym.Env):
         if self.state is None: return None
 
         # カートの描画
-        cart_x, cart_y, direction, sensor1, sensor2, sensor3 = self.state
+        #cart_x, cart_y, direction, sensor1, sensor2, sensor3 = self.state
+        cart_x, cart_y, direction = self.state[0], self.state[1], self.state[2]
         screen_x, screen_y = self.screen_xy(cart_x, cart_y, 0, cart_y)
         self.cart_trans.set_translation(screen_x, screen_y)
         self.cart_trans.set_rotation(-direction)
