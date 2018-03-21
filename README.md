@@ -3,5 +3,3 @@
 
 ## 環境
 python 3 (2だとspaceがimportできないエラーが発生するから)
-openai gym
-matplotlib

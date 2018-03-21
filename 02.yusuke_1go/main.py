@@ -16,13 +16,13 @@ NUM_EPISODES = 10000000
 MAX_STEP = 1000
 
 CART_X_BIN     = 8	# Xの離散化数
-#CART_Y_BIN     = 2	# Yの離散化数
+CART_Y_BIN     = 2	# Yの離散化数
 CART_ANGLE_BIN = 16	# 角度の離散化数
 SENSOR_BIN     = 4	# センサ値の離散化数
 RSPEED_BIN     = 8	# 回転速度の離散化数
 
 ALPHA = 0.2		# 学習率
-GAMMA = 0.99	# 割引率
+GAMMA = 0.7	# 割引率
 
 ##################################################
 # 連続値を離散化した(min〜maxをnum分割した値)を返す
@@ -37,29 +37,23 @@ def bins(clip_min, clip_max, num):
 def digitize_state(observation, observation_space):
 
 	# カートX位置, カートY位置, カートの角度, センサー値
-	cart_x, cart_y, cart_angle, sensor1, sensor2, sensor3 = observation
-	#cart_x, cart_y, cart_angle, sensor1, sensor2, sensor3, sensor4, sensor5 = observation
+	cart_x, cart_y, cart_angle, sensor1, sensor2, sensor3, sensor4, sensor5 = observation
 	
 	# 最大値と最小値
 	cart_x_high, cart_y_high, cart_angle_high, \
-		sensor1_high, sensor2_high, sensor3_high = observation_space.high
-		#sensor1_high, sensor2_high, sensor3_high, \
-		#sensor4_high, sensor5_high = observation_space.high
+		sensor1_high, sensor2_high, sensor3_high, sensor4_high, sensor5_high = observation_space.high
 	cart_x_low,  cart_y_low,  cart_angle_low,  \
-		sensor1_low,  sensor2_low,  sensor3_low  = observation_space.low
-		#sensor1_low,  sensor2_low,  sensor3_low, \
-		#sensor4_low,  sensor5_low = observation_space.low
+		sensor1_low,  sensor2_low,  sensor3_low, sensor4_low, sensor5_low  = observation_space.low
 	
 	# ビンの位置(インデックス)を返す
 	digitized = [	np.digitize(cart_x,	    bins(cart_x_low,     cart_x_high,     CART_X_BIN)    ),
-					#np.digitize(cart_y,		bins(cart_y_low,     cart_y_high,     CART_Y_BIN)    ),
+					np.digitize(cart_y,		bins(cart_y_low,     cart_y_high,     CART_Y_BIN)    ),
 					np.digitize(cart_angle,	bins(cart_angle_low, cart_angle_high, CART_ANGLE_BIN)),
 					np.digitize(sensor1,	bins(sensor1_low,    sensor1_high,    SENSOR_BIN)    ),
 					np.digitize(sensor2,	bins(sensor2_low,    sensor2_high,    SENSOR_BIN)    ),
-					np.digitize(sensor3,	bins(sensor3_low,    sensor3_high,    SENSOR_BIN)    )
-					#np.digitize(sensor3,	bins(sensor3_low,    sensor3_high,    SENSOR_BIN)    ),
-					#np.digitize(sensor4,	bins(sensor4_low,    sensor4_high,    SENSOR_BIN)    ),
-					#np.digitize(sensor5,	bins(sensor5_low,    sensor5_high,    SENSOR_BIN)    )
+					np.digitize(sensor3,	bins(sensor3_low,    sensor3_high,    SENSOR_BIN)    ),
+					np.digitize(sensor4,	bins(sensor4_low,    sensor4_high,    SENSOR_BIN)    ),
+					np.digitize(sensor5,	bins(sensor5_low,    sensor5_high,    SENSOR_BIN)    )
 				]
 	
 	return digitized
@@ -154,7 +148,7 @@ def get_action(	q_table, state,
 # メイン
 ##################################################
 if __name__ == '__main__':
-
+	
 	# 環境読み込み
 	#env = gym.make('CartPole-v0')
 	env = Yusuke1goEnv(MAX_STEP)
@@ -165,14 +159,9 @@ if __name__ == '__main__':
 	#   sizeは(カートX位置,カートY位置, カートの角度, センサー値, 左ホイールの速度、右ホイールの速度)
 	q_table = np.random.uniform( \
 					low=-1, high=1, \
-					size=(	CART_X_BIN, CART_ANGLE_BIN, 
-							SENSOR_BIN, SENSOR_BIN, SENSOR_BIN,
+					size=(	CART_X_BIN, CART_Y_BIN, CART_ANGLE_BIN, 
+							SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN,
 							RSPEED_BIN, RSPEED_BIN) )
-					#size=(	CART_X_BIN, CART_Y_BIN, CART_ANGLE_BIN, 
-					#		SENSOR_BIN, SENSOR_BIN, SENSOR_BIN,
-					#		RSPEED_BIN, RSPEED_BIN) )
-					#size=(	CART_X_BIN, CART_ANGLE_BIN, 
-					#		SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN,
 	
 	# 学習の履歴
 	steps_history = []
@@ -215,7 +204,10 @@ if __name__ == '__main__':
 			# 終了の場合
 			if done:
 				steps_history.append(step+1)
-				print('Episode-%08d finished at %03d steps' % (episode, step))
+				#print('Episode-%08d finished at %03d steps' % (episode, step))
+				if (episode % 5000) == 0:
+				    print('Episode-%08d finished at %03d steps' % (episode, step))
+
 				break
 		
 	#episodes = np.arange(len(steps_history))
@@ -237,4 +229,4 @@ if __name__ == '__main__':
 	#plt.xlabel('Episodes')
 	#plt.ylabel('Steps')
 	#plt.show()
-	
+

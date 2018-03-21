@@ -40,13 +40,15 @@ class Yusuke1goEnv(gym.Env):
         self.head_height = 2
 
         # センサーの設定
-        self.sensor_range = 150
+        #self.sensor_range = 150
+        self.sensor_range = 50
         self.sensor_val_max = 100
+        #self.sensor_val_max = 200
         self.sensor_val_min = 0
-        self.sensor_num = 3
-        self.sensor_angle = np.array([-math.pi/4, 0, math.pi/4])
-        #self.sensor_num = 5
-        #self.sensor_angle = np.array([-math.pi/2, -math.pi/4, 0, math.pi/4, math.pi/2])
+        #self.sensor_num = 3
+        #self.sensor_angle = np.array([-math.pi/6, 0, math.pi/6])
+        self.sensor_num = 5
+        self.sensor_angle = np.array([-math.pi/3, -math.pi/6, 0, math.pi/6, math.pi/3])
 
         # 障害物の設定
         self.obstacle_width = 15
@@ -55,7 +57,8 @@ class Yusuke1goEnv(gym.Env):
         self.obstacle_xmin = self.xmin + self.obstacle_width
         self.obstacle_ymax = self.ymax - 100
         self.obstacle_ymin = self.ymin + 100
-        self.obstacle_num = 5
+        #self.obstacle_num = 5
+        self.obstacle_num = 10
 
         # 描画サイズ
         self.screen_width = 400
@@ -68,13 +71,13 @@ class Yusuke1goEnv(gym.Env):
         action_low  = np.array([self.rspeed_min, self.rspeed_min])
         self.action_space = spaces.Box(low=action_low, high=action_high, dtype=np.float32)
         state_high = np.array([ self.xmax, self.ymax, self.dir_max, 
-                                self.sensor_val_max, self.sensor_val_max, self.sensor_val_max])
-                                #self.sensor_val_max, self.sensor_val_max, self.sensor_val_max,
-                                #self.sensor_val_max, self.sensor_val_max])
+                                #self.sensor_val_max, self.sensor_val_max, self.sensor_val_max])
+                                self.sensor_val_max, self.sensor_val_max, self.sensor_val_max,
+                                self.sensor_val_max, self.sensor_val_max])
         state_low  = np.array([ self.xmin, self.ymin, self.dir_min, 
-                                self.sensor_val_min, self.sensor_val_min, self.sensor_val_min])
-                                #self.sensor_val_min, self.sensor_val_min, self.sensor_val_min,
-                                #self.sensor_val_min, self.sensor_val_min])
+                                #self.sensor_val_min, self.sensor_val_min, self.sensor_val_min])
+                                self.sensor_val_min, self.sensor_val_min, self.sensor_val_min,
+                                self.sensor_val_min, self.sensor_val_min])
         self.observation_space = spaces.Box(low=state_low, high=state_high, dtype=np.float32)
 
         # 乱数・描画・状態・ステップ初期化
@@ -146,7 +149,8 @@ class Yusuke1goEnv(gym.Env):
                     # センサが障害物の方を向いていれば距離に応じたセンサー値とする
                     # (距離が近いほど大きく、遠いほど小さく)
                     diff_sensor_angle = self.correct_angle(diff_angle - self.sensor_angle[j])
-                    if abs(diff_sensor_angle) < math.pi/9:
+                    #if abs(diff_sensor_angle) < math.pi/9:
+                    if abs(diff_sensor_angle) < math.pi/6:
                         sensor_val_tmp = self.sensor_val_max * (1 - distance/self.sensor_range)
                         if sensor_val[j] < sensor_val_tmp:
                             sensor_val[j] = sensor_val_tmp
@@ -158,8 +162,13 @@ class Yusuke1goEnv(gym.Env):
         if not done:
 
             # y座標の増分に応じて報酬を増やす
-            reward = new_y - y
+            #reward = new_y - y
+            reward = (new_y - y)  - sensor_val[0] - sensor_val[1] - sensor_val[2] - sensor_val[3] - sensor_val[4]
             
+            # これ↓をやることで、なるべく正面を向いてくれるといいな・・・
+            if abs(new_angle) < math.pi/9:
+                reward = reward + 20
+ 
             # 終了判定(境界オーバー)
             if new_x > self.xmax:
                 done = True
@@ -385,7 +394,7 @@ class Yusuke1goEnv(gym.Env):
             self.obstacle_xy_list.append((x, y))
 
     ##################################################
-    # 角度(radian)を-180°〜180°に補正する
+    # 角度(radian)を-180°?180°に補正する
     ##################################################
     def correct_angle(self, rad):
         angle = rad
