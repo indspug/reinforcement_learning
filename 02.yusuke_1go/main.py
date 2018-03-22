@@ -15,7 +15,7 @@ import numpy as np
 NUM_EPISODES = 10000000
 MAX_STEP = 1000
 
-CART_X_BIN     = 8	# Xの離散化数
+CART_X_BIN     = 4	# Xの離散化数
 CART_Y_BIN     = 2	# Yの離散化数
 CART_ANGLE_BIN = 16	# 角度の離散化数
 SENSOR_BIN     = 4	# センサ値の離散化数
@@ -46,9 +46,10 @@ def digitize_state(observation, observation_space):
 		sensor1_low,  sensor2_low,  sensor3_low, sensor4_low, sensor5_low  = observation_space.low
 	
 	# ビンの位置(インデックス)を返す
-	digitized = [	np.digitize(cart_x,	    bins(cart_x_low,     cart_x_high,     CART_X_BIN)    ),
-					np.digitize(cart_y,		bins(cart_y_low,     cart_y_high,     CART_Y_BIN)    ),
-					np.digitize(cart_angle,	bins(cart_angle_low, cart_angle_high, CART_ANGLE_BIN)),
+	#digitized = [	np.digitize(cart_x,	    bins(cart_x_low,     cart_x_high,     CART_X_BIN)    ),
+	#				np.digitize(cart_y,		bins(cart_y_low,     cart_y_high,     CART_Y_BIN)    ),
+	#				np.digitize(cart_angle,	bins(cart_angle_low, cart_angle_high, CART_ANGLE_BIN)),
+	digitized = [	np.digitize(cart_angle,	bins(cart_angle_low, cart_angle_high, CART_ANGLE_BIN)),
 					np.digitize(sensor1,	bins(sensor1_low,    sensor1_high,    SENSOR_BIN)    ),
 					np.digitize(sensor2,	bins(sensor2_low,    sensor2_high,    SENSOR_BIN)    ),
 					np.digitize(sensor3,	bins(sensor3_low,    sensor3_high,    SENSOR_BIN)    ),
@@ -126,6 +127,9 @@ def get_action(	q_table, state,
 				observation, observation_space, 
 				reward, episode):
 
+	#new_state = digitize_state(observation, observation_space)
+	#next_state = new_state + state
+	#del next_state[STATE_NUM*(STATE_TIME_NUM-1) : STATE_NUM*STATE_TIME_NUM]
 	next_state = digitize_state(observation, observation_space)
 	action_bin = digitize_action(action, action_space)
 	
@@ -159,12 +163,20 @@ if __name__ == '__main__':
 	#   sizeは(カートX位置,カートY位置, カートの角度, センサー値, 左ホイールの速度、右ホイールの速度)
 	q_table = np.random.uniform( \
 					low=-1, high=1, \
-					size=(	CART_X_BIN, CART_Y_BIN, CART_ANGLE_BIN, 
-							SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN,
-							RSPEED_BIN, RSPEED_BIN) )
+					#size=(	CART_X_BIN, CART_Y_BIN, CART_ANGLE_BIN, 
+					#		SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN,
+					#		RSPEED_BIN, RSPEED_BIN) )
+					size=(	
+						CART_ANGLE_BIN, 
+						SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, SENSOR_BIN, 
+						RSPEED_BIN, RSPEED_BIN
+					)
+				)
 	
 	# 学習の履歴
-	steps_history = []
+	#steps_history = []
+	ave_step = 0
+	ave_reward = 0
 	
 	# 強化学習開始
 	for episode in range(NUM_EPISODES):
@@ -172,13 +184,16 @@ if __name__ == '__main__':
 		# 環境初期化
 		observation = env.reset()
 		state = digitize_state(observation, observation_space)
-		action = get_action_argmax(q_table, state)
+		#state = state + state + state
+		action_bin = get_action_argmax(q_table, state)
 		
 		# 描画有無決定
 		isRendering = False
-		if (episode > 5000) and (episode % 200) == 0:
+		if (episode > 20000) and (episode % 200) == 0:
 			isRendering = True
-		elif (episode > 1000) and (episode % 500) == 0:
+		elif (episode > 5000) and (episode % 500) == 0:
+			isRendering = True
+		elif (episode > 500) and (episode % 1000) == 0:
 			isRendering = True
 
 		# 最大ステップ数まで学習
@@ -188,25 +203,33 @@ if __name__ == '__main__':
 			if isRendering:
 				env.render()
 			
-			action = d2a_action_argmax(action, action_space)
+			# アクションを離散値から連続値に変換
+			action = d2a_action_argmax(action_bin, action_space)
 
 			# 1ステップ進める
 			observation, reward, done, info = env.step(action)
 				# 取得したアクション後の状態,報酬,終了判定,情報
-			
 			#print('x=%f, y=%f, dir=%f' % (observation[0], observation[1], observation[2]))
-
+			ave_reward = ave_reward + reward
+			
 			# (離散化された)次のアクションと離散化した状態を取得
-			action, state = get_action(	q_table, state, action, action_space,
+			action_bin, state = get_action(	q_table, state, action, action_space,
 										observation, observation_space, 
 										reward, episode)
 			
 			# 終了の場合
 			if done:
-				steps_history.append(step+1)
+				ave_step = ave_step + (step + 1)
+				#steps_history.append(step+1)
 				#print('Episode-%08d finished at %03d steps' % (episode, step))
-				if (episode % 5000) == 0:
-				    print('Episode-%08d finished at %03d steps' % (episode, step))
+				if (episode % 500) == 0:
+					ave_step = ave_step / 500
+					ave_reward = ave_reward / 500
+				    #print('Episode-%08d finished at %03d steps' % (episode, step))
+					print('Episode-%08d finished at average %03d steps, average rewards %7.1f' 
+							% (episode, ave_step, ave_reward))
+					ave_step = 0
+					ave_reward = 0
 
 				break
 		

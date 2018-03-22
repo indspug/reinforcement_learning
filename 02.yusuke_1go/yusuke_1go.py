@@ -40,15 +40,12 @@ class Yusuke1goEnv(gym.Env):
         self.head_height = 2
 
         # センサーの設定
-        #self.sensor_range = 150
         self.sensor_range = 50
         self.sensor_val_max = 100
-        #self.sensor_val_max = 200
         self.sensor_val_min = 0
-        #self.sensor_num = 3
-        #self.sensor_angle = np.array([-math.pi/6, 0, math.pi/6])
         self.sensor_num = 5
         self.sensor_angle = np.array([-math.pi/3, -math.pi/6, 0, math.pi/6, math.pi/3])
+        self.sensor_permmisible_range = math.pi/6
 
         # 障害物の設定
         self.obstacle_width = 15
@@ -57,7 +54,6 @@ class Yusuke1goEnv(gym.Env):
         self.obstacle_xmin = self.xmin + self.obstacle_width
         self.obstacle_ymax = self.ymax - 100
         self.obstacle_ymin = self.ymin + 100
-        #self.obstacle_num = 5
         self.obstacle_num = 10
 
         # 描画サイズ
@@ -71,11 +67,9 @@ class Yusuke1goEnv(gym.Env):
         action_low  = np.array([self.rspeed_min, self.rspeed_min])
         self.action_space = spaces.Box(low=action_low, high=action_high, dtype=np.float32)
         state_high = np.array([ self.xmax, self.ymax, self.dir_max, 
-                                #self.sensor_val_max, self.sensor_val_max, self.sensor_val_max])
                                 self.sensor_val_max, self.sensor_val_max, self.sensor_val_max,
                                 self.sensor_val_max, self.sensor_val_max])
         state_low  = np.array([ self.xmin, self.ymin, self.dir_min, 
-                                #self.sensor_val_min, self.sensor_val_min, self.sensor_val_min])
                                 self.sensor_val_min, self.sensor_val_min, self.sensor_val_min,
                                 self.sensor_val_min, self.sensor_val_min])
         self.observation_space = spaces.Box(low=state_low, high=state_high, dtype=np.float32)
@@ -104,7 +98,6 @@ class Yusuke1goEnv(gym.Env):
         done = False
 
         # 状態と行動を取得
-        #x, y, angle, sensor1, sensor2, sensor3 = self.state
         x, y, angle,  = self.state[0], self.state[1], self.state[2]
         left_rspeed, right_rspeed = action
 
@@ -141,19 +134,50 @@ class Yusuke1goEnv(gym.Env):
                 diff_angle = self.correct_angle(diff_angle - new_angle)
 
                 for j in range(self.sensor_num):
-                    #print('(%d,%d) : cart(%.1f,%.1f), obst(%.1f,%.1f)' % 
-                    #        (i, j, new_x, new_y, ox, oy))
-                    #print('(%d,%d) : cart_angle=%.1f, diff_angle=%.1f' % 
-                    #        (i, j, new_angle*180/math.pi, diff_angle*180/math.pi))
 
                     # センサが障害物の方を向いていれば距離に応じたセンサー値とする
                     # (距離が近いほど大きく、遠いほど小さく)
                     diff_sensor_angle = self.correct_angle(diff_angle - self.sensor_angle[j])
-                    #if abs(diff_sensor_angle) < math.pi/9:
-                    if abs(diff_sensor_angle) < math.pi/6:
+                    if abs(diff_sensor_angle) < self.sensor_permmisible_range:
+                        # センサと障害物の相対角度が許容角の範囲の場合
                         sensor_val_tmp = self.sensor_val_max * (1 - distance/self.sensor_range)
                         if sensor_val[j] < sensor_val_tmp:
                             sensor_val[j] = sensor_val_tmp
+
+        # センサと両サイド壁との距離がセンサーの射程内の場合で
+        # 障害物よりも壁の方が近い場合は、センサ値を更新する。
+        if not done:
+
+            # 右壁との距離と相対角度
+            distance_right = abs(self.xmax - new_x)
+            diff_angle_right = self.correct_angle(math.pi/2 - new_angle)
+
+            # 左壁との距離と相対角度
+            distance_left = abs(self.xmin - new_x)
+            diff_angle_left = self.correct_angle(-math.pi/2 - new_angle)
+            
+            #print('[(x,y)=(%5.1f,%5.1f) angle=%6.1f]' 
+            #        % (new_x, new_y, new_angle*180/math.pi) )
+            for j in range(self.sensor_num):
+
+                # 右壁はセンサの処理
+                if distance_right < self.sensor_range:
+                    diff_sensor_angle_right = self.correct_angle(diff_angle_right - self.sensor_angle[j])                    
+                    if abs(diff_sensor_angle_right) < self.sensor_permmisible_range:
+                        sensor_val_tmp = self.sensor_val_max * (1 - distance_right/self.sensor_range)
+                        #print('  %d: angle=%6.1f sensor=%5.1f' 
+                        #       % (j+1, self.sensor_angle[j]*180/math.pi, sensor_val_tmp) )
+                        if sensor_val[j] < sensor_val_tmp:
+                            sensor_val[j] = sensor_val_tmp
+            
+                # 左壁はセンサの処理
+                if distance_left < self.sensor_range:
+                    diff_sensor_angle_left = self.correct_angle(diff_angle_left - self.sensor_angle[j])                    
+                    if abs(diff_sensor_angle_left) < self.sensor_permmisible_range:
+                        sensor_val_tmp = self.sensor_val_max * (1 - distance_left/self.sensor_range)
+                        if sensor_val[j] < sensor_val_tmp:
+                            sensor_val[j] = sensor_val_tmp
+            
 
         # 状態更新
         self.state = (new_x, new_y, new_angle) + tuple(sensor_val.tolist())
@@ -162,9 +186,11 @@ class Yusuke1goEnv(gym.Env):
         if not done:
 
             # y座標の増分に応じて報酬を増やす
-            #reward = new_y - y
-            reward = (new_y - y)  - sensor_val[0] - sensor_val[1] - sensor_val[2] - sensor_val[3] - sensor_val[4]
-            
+            #reward = (new_y - y)  - sensor_val[0] - sensor_val[1] - sensor_val[2] - sensor_val[3] - sensor_val[4]
+            reward = new_y - y
+            for i in range(self.sensor_num):
+                reward = reward - sensor_val[i]
+
             # これ↓をやることで、なるべく正面を向いてくれるといいな・・・
             if abs(new_angle) < math.pi/9:
                 reward = reward + 20
@@ -221,7 +247,6 @@ class Yusuke1goEnv(gym.Env):
         if self.state is None: return None
 
         # カートの描画
-        #cart_x, cart_y, direction, sensor1, sensor2, sensor3 = self.state
         cart_x, cart_y, direction = self.state[0], self.state[1], self.state[2]
         screen_x, screen_y = self.screen_xy(cart_x, cart_y, 0, cart_y)
         self.cart_trans.set_translation(screen_x, screen_y)
@@ -244,8 +269,6 @@ class Yusuke1goEnv(gym.Env):
 
         # 障害物の描画
         for i, obstacle_trans in enumerate(self.obstacle_trans_list):
-        #for i in range(len(self.obstacle_trans_list)):
-            obstacle_trans = self.obstacle_trans_list[i]
             x, y = self.obstacle_xy_list[i]
             screen_x, screen_y = self.screen_xy(x, y, 0, cart_y)
             obstacle_trans.set_translation(screen_x, screen_y)
@@ -318,7 +341,7 @@ class Yusuke1goEnv(gym.Env):
                 beam.set_color(1.0,0.8,0)
                 beam.set_linewidth(2)
                 beam_trans = rendering.Transform()
-                beam_trans.set_rotation(self.sensor_angle[i])
+                beam_trans.set_rotation(-self.sensor_angle[i])
                 beam.add_attr(beam_trans)
                 beam.add_attr(head_trans)
                 beam.add_attr(self.cart_trans)
@@ -399,9 +422,9 @@ class Yusuke1goEnv(gym.Env):
     def correct_angle(self, rad):
         angle = rad
         while angle > math.pi:
-            angle = angle - math.pi
+            angle = angle - 2.0*math.pi
         while angle < -math.pi:
-            angle = angle + math.pi
+            angle = angle + 2.0*math.pi
 
         return angle
 
