@@ -54,7 +54,8 @@ class Yusuke1goEnv(gym.Env):
         self.obstacle_xmin = self.xmin + self.obstacle_width
         self.obstacle_ymax = self.ymax - 100
         self.obstacle_ymin = self.ymin + 100
-        self.obstacle_num = 10
+        #self.obstacle_num = 10
+        self.obstacle_num = 20
 
         # 描画サイズ
         self.screen_width = 400
@@ -186,10 +187,10 @@ class Yusuke1goEnv(gym.Env):
         if not done:
 
             # y座標の増分に応じて報酬を増やす
-            #reward = (new_y - y)  - sensor_val[0] - sensor_val[1] - sensor_val[2] - sensor_val[3] - sensor_val[4]
-            reward = new_y - y
-            for i in range(self.sensor_num):
-                reward = reward - sensor_val[i]
+            reward = (new_y - y)  - sensor_val[0]*0.5 - sensor_val[1]*0.7 - sensor_val[2] - sensor_val[3]*0.7 - sensor_val[4]*0.5
+            #reward = new_y - y
+            #for i in range(self.sensor_num):
+            #    reward = reward - sensor_val[i]
 
             # これ↓をやることで、なるべく正面を向いてくれるといいな・・・
             if abs(new_angle) < math.pi/9:
