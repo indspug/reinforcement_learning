@@ -40,7 +40,8 @@ class Yusuke1goEnv(gym.Env):
         self.head_height = 2
 
         # センサーの設定
-        self.sensor_range = 50
+        #self.sensor_range = 50
+        self.sensor_range = 70
         self.sensor_val_max = 100
         self.sensor_val_min = 0
         self.sensor_num = 5
@@ -55,7 +56,7 @@ class Yusuke1goEnv(gym.Env):
         self.obstacle_ymax = self.ymax - 100
         self.obstacle_ymin = self.ymin + 100
         #self.obstacle_num = 10
-        self.obstacle_num = 20
+        self.obstacle_num = 15
 
         # 描画サイズ
         self.screen_width = 400
@@ -100,7 +101,9 @@ class Yusuke1goEnv(gym.Env):
 
         # 状態と行動を取得
         x, y, angle,  = self.state[0], self.state[1], self.state[2]
+        #print('x:%d y:%d angle:%f' % (x, y, angle))
         left_rspeed, right_rspeed = action
+        #print('left:%f right:%f' % (left_rspeed, right_rspeed))
 
         # 状態更新
         angle_dot = (left_rspeed - right_rspeed) / float(self.cart_width)
@@ -195,6 +198,8 @@ class Yusuke1goEnv(gym.Env):
             # これ↓をやることで、なるべく正面を向いてくれるといいな・・・
             if abs(new_angle) < math.pi/9:
                 reward = reward + 20
+            if math.pi/2 < abs(new_angle):
+                reward = -100
  
             # 終了判定(境界オーバー)
             if new_x > self.xmax:
