@@ -136,9 +136,12 @@ class Actor:
 ##################################################
 # 連続値を離散化した(min?maxをnum分割した値)を返す
 ##################################################
-def bins(clip_min, clip_max, num):
-	bins = np.linspace(clip_min, clip_max, num+1)[1:-1]
-	return bins
+#def bins(clip_min, clip_max, num):
+#	bins = np.linspace(clip_min, clip_max, num+1)[1:-1]
+#	return bins
+
+def min_max(value, min, max):
+	return (value - min)/(max - min)
 
 ##################################################
 # 状態を離散値に変換する
@@ -147,34 +150,25 @@ def digitize_state(observation, observation_space):
 
 	# カートX位置, カートY位置, カートの角度, センサー値
 	cart_x, cart_y, cart_angle, sensor1, sensor2, sensor3, sensor4, sensor5 = observation
-	#print('x:%f, y:%f, angle:%f, 1:%f, 2:%f, 3:%f, 4:%f, 5:%f' % (cart_x, cart_y, cart_angle, sensor1, sensor2, sensor3, sensor4, sensor5))
 
 	# 最大値と最小値
-	cart_x_high, cart_y_high, cart_angle_high, \
-		sensor1_high, sensor2_high, sensor3_high, sensor4_high, sensor5_high = observation_space.high
-	cart_x_low,  cart_y_low,  cart_angle_low,  \
-		sensor1_low,  sensor2_low,  sensor3_low, sensor4_low, sensor5_low  = observation_space.low
-	#print('high1:%f, high2:%f' % (sensor1_high, sensor2_high))
-	#print('low1:%f, low2:%f' % (sensor1_low, sensor2_low))
-	#print('sensor1:%f, low1:%f, low2:%f, SENSOR_BIN:%d' % (sensor1, sensor1_low, sensor1_high, SENSOR_BIN))
+	#cart_x_high, cart_y_high, cart_angle_high, \
+	#	sensor1_high, sensor2_high, sensor3_high, sensor4_high, sensor5_high = observation_space.high
+	#cart_x_low,  cart_y_low,  cart_angle_low,  \
+	#	sensor1_low,  sensor2_low,  sensor3_low, sensor4_low, sensor5_low  = observation_space.low
 	
 	# ビンの位置(インデックス)を返す
-	digitized = [	np.digitize(cart_angle,	bins(cart_angle_low, cart_angle_high, CART_ANGLE_BIN)),
-					np.digitize(sensor1,	bins(sensor1_low,    sensor1_high,    SENSOR_BIN)    ),
-					np.digitize(sensor2,	bins(sensor2_low,    sensor2_high,    SENSOR_BIN)    ),
-					np.digitize(sensor3,	bins(sensor3_low,    sensor3_high,    SENSOR_BIN)    ),
-					np.digitize(sensor4,	bins(sensor4_low,    sensor4_high,    SENSOR_BIN)    ),
-					np.digitize(sensor5,	bins(sensor5_low,    sensor5_high,    SENSOR_BIN)    )
-				]
-	
-	#return digitized
-	return np.array([np.digitize(cart_angle, bins(cart_angle_low, cart_angle_high, CART_ANGLE_BIN)),
-			np.digitize(sensor1,    bins(sensor1_low,    sensor1_high,    SENSOR_BIN)    ),
-			np.digitize(sensor2,    bins(sensor2_low,    sensor2_high,    SENSOR_BIN)    ),
-			np.digitize(sensor3,    bins(sensor3_low,    sensor3_high,    SENSOR_BIN)    ),
-			np.digitize(sensor4,    bins(sensor4_low,    sensor4_high,    SENSOR_BIN)    ),
-			np.digitize(sensor5,    bins(sensor5_low,    sensor5_high,    SENSOR_BIN)    )
-			]) 
+	#return np.array([np.digitize(cart_angle, bins(cart_angle_low, cart_angle_high, CART_ANGLE_BIN)),
+	#		np.digitize(sensor1,    bins(sensor1_low,    sensor1_high,    SENSOR_BIN)    ),
+	#		np.digitize(sensor2,    bins(sensor2_low,    sensor2_high,    SENSOR_BIN)    ),
+	#		np.digitize(sensor3,    bins(sensor3_low,    sensor3_high,    SENSOR_BIN)    ),
+	#		np.digitize(sensor4,    bins(sensor4_low,    sensor4_high,    SENSOR_BIN)    ),
+	#		np.digitize(sensor5,    bins(sensor5_low,    sensor5_high,    SENSOR_BIN)    )
+	#		]) 
+	return np.array([min_max(cart_angle, -math.pi, math.pi),
+			min_max(sensor1, 0, 100), min_max(sensor2, 0, 100),
+			min_max(sensor3, 0, 100), min_max(sensor4, 0, 100),
+			min_max(sensor5, 0, 100)])
 
 ##################################################
 # アクションを離散値に変換する
@@ -281,7 +275,8 @@ def d2a_action_argmax(action, action_space):
 if __name__ == '__main__':
 
 	#gamma = 0.99
-	gamma = 0.0000099
+	#gamma = 0.0000099
+	gamma = 0.000099
 	islearned = 0	
 	# 環境読み込み
 	env = Yusuke1goEnv(MAX_STEP)
