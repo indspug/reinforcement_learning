@@ -33,14 +33,6 @@ OpenAI Gymをインストールする。
 ```shell
 $ pip3 install gym
 ```
-Tensoflowをインストールする(最新版の1.7だとエラーが出たので1.5指定)。
-```shell
-$ pip3 install tensorflow==1.5.0
-```
-Kerasをインストールする。
-```shell
-$ pip3 install keras
-```
 作業用のフォルダを作成する(名前はなんでも良いです)
 ```shell
 $ mkdir workspace
