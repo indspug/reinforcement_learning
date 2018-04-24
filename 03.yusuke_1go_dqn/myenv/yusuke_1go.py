@@ -12,11 +12,15 @@ from gym.envs.classic_control import rendering
 import numpy as np
 
 class Yusuke1goEnv(gym.Env):
+    metadata = {
+        'render.modes': ['human', 'rgb_array'],
+        'video.frames_per_second' : 50
+    }
 
     ##################################################
     # コンストラクタ
     ##################################################
-    def __init__(self, max_step=500):
+    def __init__(self, max_step=1000):
 
         # 最大ステップ数設定
         self.max_step = max_step
