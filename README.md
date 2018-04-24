@@ -41,6 +41,10 @@ Kerasをインストールする。
 ```shell
 $ pip3 install keras
 ```
+ffmpegをインストールする(動画保存用)。
+```shell
+$ sudo apt-get install ffmpeg
+```
 作業用のフォルダを作成する(名前はなんでも良いです)
 ```shell
 $ mkdir workspace
