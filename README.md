@@ -1,13 +1,14 @@
 # reinforcement_learning
-強化学習の勉強用<br>
-<br>
-※ このブランチ[continue_to_upload_until_may]は5月までの期間限定。マスターを更新しないように設けたブランチ。
+以前は強化学習の勉強用だったが、<br>
+今は課の取り組み用として共有している<br>
 
 ## 環境
 python 3<br>
 OpenAI Gym<br>
+TensorFlow 1.5.0<br>
+Keras<br>
 <br>
-2だと動かなかったりする。<br>
+OpenAI Gym2だと動かなかったりする。<br>
 (自分の環境ではImportError: cannot import name 'spaces'が出て解決できず)<br>
 <br>
 動く場合もあるが"おまじない"が必要な場合。<br>
