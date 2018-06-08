@@ -222,12 +222,13 @@ if __name__ == '__main__':
 				ave_step = ave_step + (step + 1)
 				#steps_history.append(step+1)
 				#print('Episode-%08d finished at %03d steps' % (episode, step))
+				print('%08d,%03d,%d' % (episode, step, observation[1]))
 				if (episode % 500) == 0:
 					ave_step = ave_step / 500
 					ave_reward = ave_reward / 500
 				    #print('Episode-%08d finished at %03d steps' % (episode, step))
-					print('Episode-%08d finished at average %03d steps, average rewards %7.1f' 
-							% (episode, ave_step, ave_reward))
+					#print('Episode-%08d finished at average %03d steps, average rewards %7.1f' 
+							#% (episode, ave_step, ave_reward))
 					ave_step = 0
 					ave_reward = 0
 

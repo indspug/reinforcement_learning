@@ -1,5 +1,7 @@
 # reinforcement_learning
-強化学習の勉強用
+強化学習の勉強用<br>
+<br>
+※ このブランチ[continue_to_upload_until_may]は5月までの期間限定。マスターを更新しないように設けたブランチ。
 
 ## 環境
 python 3<br>
@@ -30,6 +32,18 @@ $ sudo apt install python3-pip git
 OpenAI Gymをインストールする。
 ```shell
 $ pip3 install gym
+```
+Tensoflowをインストールする(最新版の1.7だとエラーが出たので1.5指定)。
+```shell
+$ pip3 install tensorflow==1.5.0
+```
+Kerasをインストールする。
+```shell
+$ pip3 install keras
+```
+ffmpegをインストールする(動画保存用)。
+```shell
+$ sudo apt-get install ffmpeg
 ```
 作業用のフォルダを作成する(名前はなんでも良いです)
 ```shell
