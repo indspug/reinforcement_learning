@@ -60,3 +60,9 @@ yusuke_1goの実行方法。
 $ cd reinforcement_learning/02.yusuke_1go
 $ python3 main.py
 ```
+
+### トラブルシューティング
+もし"ImportError: `save_weights` requires h5py."と出たら、
+```shell
+$ pip3 install h5py
+```
