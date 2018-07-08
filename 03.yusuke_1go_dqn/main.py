@@ -12,6 +12,7 @@ import numpy as np
 import gym
 from gym import wrappers  # gymの画像保存
 import time
+import datetime
 from keras.models import Sequential, load_model
 from keras.layers import InputLayer, Dense
 from keras.optimizers import Adam
@@ -36,15 +37,15 @@ GAMMA = 0.9		# 割引率
 
 DQN_MODE = 1    # 1がDQN、0がDDQN
 
-HIDDEN_SIZE = [32, 64]	# Q-networkの隠れ層のニューロンの数
+HIDDEN_SIZE = [512]	# Q-networkの隠れ層のニューロンの数
 LEARNING_RATE = 0.005	# Q-networkの学習係数
-memory_size = 10000	# バッファーメモリの大きさ
-BATCH_SIZE = 16		# Q-networkを更新するバッチの大きさ
+memory_size = 65536	# バッファーメモリの大きさ
+BATCH_SIZE = 4		# Q-networkを更新するバッチの大きさ
  
-RESULT_OUTPUT_CYCLE = 500	# 結果出力サイクル(エピソード単位)
+RESULT_OUTPUT_CYCLE = 100	# 結果出力サイクル(エピソード単位)
 RESULT_CSV = "./result.csv"	# 結果ファイル
 
-WEIGHTS_SAVE_CYCLE = 100	# 重み保存周期(エピソード単位)
+WEIGHTS_SAVE_CYCLE = 500	# 重み保存周期(エピソード単位)
 WEIGHTS_SAVE_DIR = "./weights"	# 重み保存ディレクトリ
 
 
@@ -193,8 +194,16 @@ def digitize_action(action, action_space):
 ##################################################
 def d2a_action_argmax(action, action_space):
 
-	def_left = [0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3]
-	def_right = [0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3]
+	#def_left = [0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3]
+	#def_right = [0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3]
+	def_left = [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,
+		    2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,
+		    4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,
+		    6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7]
+	def_right = [0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7,
+		     0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7,
+		     0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7,
+		     0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7]
 
 	# 左ホイールの速度, 右ホイールの速度
 	left_rspeed_bin = def_left[action]
@@ -213,6 +222,17 @@ def d2a_action_argmax(action, action_space):
 	rspeed = float(right_rspeed_bin) / float(RSPEED_BIN-1) * right_range + right_rs_low
 
 	return np.array([lspeed, rspeed])
+
+##################################################
+# 日付の文字列表現を返す
+##################################################
+def get_datetime_string():
+	
+	dn = datetime.datetime.now()
+	return "%04d/%02d/%02d %02d:%02d:%02d" % (
+		dn.year, dn.month, dn.day,
+		dn.hour, dn.minute, dn.second	
+	)
 
 ##################################################
 # メイン
@@ -239,7 +259,7 @@ if __name__ == '__main__':
 	env = gym.make('myenv-v0')
 	env = wrappers.Monitor(
 		env, './movie', force=True, 
-		video_callable=(lambda ep: ep % MOVIE_SAVE_CYCLE == 0))
+		video_callable=(lambda ep: (ep+start_episode) % MOVIE_SAVE_CYCLE == 0))
 	observation_space = env.observation_space
 	action_space = env.action_space
 
@@ -269,12 +289,14 @@ if __name__ == '__main__':
 	fo.write("\n")
 	fo.write("learning_rate,%f\n" % (LEARNING_RATE))
 	fo.write("batch_size,%d\n"    % (BATCH_SIZE))
-	fo.write("episode,goal_num,average_y\n")
+	fo.write("episode,goal_num,average_y,average_step,elapsed_time[sec]\n")
 	fo.close()
 	
 	# 結果データ初期化
-	goal_num = 0;
-	average_y = 0.0;
+	goal_num = 0
+	average_y = 0
+	average_step = 0
+	start_time = time.time()
 	
 	# 強化学習開始
 	for episode in range(start_episode, MAX_EPISODE):
@@ -302,18 +324,16 @@ if __name__ == '__main__':
 			if isRendering:
 				env.render()
 			
-			action_bin = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
-			#print('action_bin:%d' % (action_bin))
+			action_bin = actor.get_action(state, episode, mainQN)	# 時刻tでの行動を決定する
 			action = d2a_action_argmax(action_bin, action_space)
-			observation, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
-			#print('reward:%d' % (reward))
-
+			observation, reward, done, info = env.step(action)	# 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+			
 			next_state = normalize_state(observation, observation_space)
-			next_state = np.reshape(next_state, [1, STATE_NUM])     # list型のstateを、1行8列の行列に変換
+			next_state = np.reshape(next_state, [1, STATE_NUM])	# list型のstateを、1行8列の行列に変換
 	
  
-			memory.add((state, action_bin, reward, next_state))     # メモリの更新する
-			state = next_state  # 状態更新
+			memory.add((state, action_bin, reward, next_state))	# メモリの更新する
+			state = next_state	# 状態更新
 			
 			# Qネットワークの重みを学習・更新する replay
 			if (memory.len() > BATCH_SIZE):
@@ -326,11 +346,12 @@ if __name__ == '__main__':
 			# 終了の場合
 			if done:
 				y = observation[1]
+				average_y = average_y + y
+				average_step = average_step + (step+1)
 				ymax = observation_space.high[1]
-				print('%08d,%03d,%d' % (episode, step, y))
 				if (y >= ymax):
 					goal_num = goal_num + 1
-					average_y = average_y + y
+				print('[%s] %08d,%03d,%d' % (get_datetime_string(), episode, step, y))
 				break
 		
 		# 価値計算ネットワークの更新
@@ -344,11 +365,14 @@ if __name__ == '__main__':
 		# 結果出力
 		if (episode % RESULT_OUTPUT_CYCLE) == 0:
 			average_y = average_y / RESULT_OUTPUT_CYCLE
+			average_step = average_step / RESULT_OUTPUT_CYCLE
+			elapsed_time = time.time() - start_time
 			fo = open(RESULT_CSV, "a")
-			fo.write("%d, %d, %f\n" % (episode, goal_num, average_y))
+			fo.write("%d, %d, %f, %f, %f\n" % (episode, goal_num, average_y, average_step, elapsed_time))
 			fo.close()
 			goal_num = 0
-			average_y = 0	
+			average_y = 0
+			average_step = 0
 		
 	# 環境終了
 	env.close()

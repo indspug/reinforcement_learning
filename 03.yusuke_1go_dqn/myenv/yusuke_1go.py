@@ -45,7 +45,7 @@ class Yusuke1goEnv(gym.Env):
 
         # センサーの設定
         #self.sensor_range = 50
-        self.sensor_range = 70
+        self.sensor_range = 50
         self.sensor_val_max = 100
         self.sensor_val_min = 0
         self.sensor_num = 5
@@ -60,7 +60,7 @@ class Yusuke1goEnv(gym.Env):
         self.obstacle_ymax = self.ymax - 100
         self.obstacle_ymin = self.ymin + 100
         #self.obstacle_num = 10
-        self.obstacle_num = 15
+        self.obstacle_num = 20
 
         # 描画サイズ
         self.screen_width = 400

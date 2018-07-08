@@ -12,11 +12,15 @@ from gym.envs.classic_control import rendering
 import numpy as np
 
 class Yusuke1goEnv(gym.Env):
+    metadata = {
+        'render.modes': ['human', 'rgb_array'],
+        'video.frames_per_second' : 50
+    }
 
     ##################################################
     # コンストラクタ
     ##################################################
-    def __init__(self, max_step=500):
+    def __init__(self, max_step=1000):
 
         # 最大ステップ数設定
         self.max_step = max_step
@@ -40,6 +44,7 @@ class Yusuke1goEnv(gym.Env):
         self.head_height = 2
 
         # センサーの設定
+        #self.sensor_range = 50
         self.sensor_range = 50
         self.sensor_val_max = 100
         self.sensor_val_min = 0
@@ -100,7 +105,9 @@ class Yusuke1goEnv(gym.Env):
 
         # 状態と行動を取得
         x, y, angle,  = self.state[0], self.state[1], self.state[2]
+        #print('x:%d y:%d angle:%f' % (x, y, angle))
         left_rspeed, right_rspeed = action
+        #print('left:%f right:%f' % (left_rspeed, right_rspeed))
 
         # 状態更新
         angle_dot = (left_rspeed - right_rspeed) / float(self.cart_width)
@@ -195,6 +202,8 @@ class Yusuke1goEnv(gym.Env):
             # これ↓をやることで、なるべく正面を向いてくれるといいな・・・
             if abs(new_angle) < math.pi/9:
                 reward = reward + 20
+            if math.pi/2 < abs(new_angle):
+                reward = -100
  
             # 終了判定(境界オーバー)
             if new_x > self.xmax:
